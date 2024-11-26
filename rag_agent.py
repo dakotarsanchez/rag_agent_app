@@ -302,7 +302,12 @@ class RAGAgent:
 
     def get_recent_meeting_summaries(self, num_meetings: int = 3):
         """Get summaries for the most recent meetings"""
-        url = f"https://api.ragie.ai/documents?page_size={num_meetings}&filter=%7B%22folder%22%3A%20%7B%22%24eq%22%3A%20%22test_meetings%22%7D%7D"
+        # Fix the filter format in the URL
+        url = "https://api.ragie.ai/documents"
+        params = {
+            "page_size": num_meetings,
+            "filter": {"folder": {"$eq": "test_meetings"}}
+        }
         
         headers = {
             "accept": "application/json",
@@ -311,7 +316,7 @@ class RAGAgent:
         
         try:
             print("Fetching documents...")
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             
             documents = response.json().get('documents', [])
@@ -329,10 +334,12 @@ class RAGAgent:
                         'name': doc.get('name', 'Unnamed Meeting').replace('.pdf', ''),
                         'summary': summary_response.json().get('summary', 'No summary available')
                     })
+                    print(f"Added meeting: {doc.get('name')}")
                     
                 except Exception as e:
                     print(f"Error fetching summary for document {doc.get('id')}: {e}")
                     
+            print(f"Returning {len(meeting_summaries)} summaries")
             return meeting_summaries
             
         except Exception as e:
