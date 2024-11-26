@@ -1,6 +1,8 @@
 import streamlit as st
 import os
 from rag_agent import DocumentAnalysisAgents
+from langchain.agents import AgentType
+from langchain.callbacks import StreamlitCallbackHandler
 
 st.set_page_config(page_title="RAG Agent Interface", layout="wide")
 
@@ -27,16 +29,22 @@ if st.button("Run Query", type="primary"):
     if query and os.getenv("OPENAI_API_KEY"):
         with st.spinner("Processing..."):
             try:
+                # Create callback handler for Streamlit
+                callbacks = [StreamlitCallbackHandler(st.container())]
+                
                 analysis_workflow = DocumentAnalysisAgents()
                 final_analysis = analysis_workflow.execute_analysis(
                     query=query,
                     meeting_notes=None,
                     client_agreements=None,
-                    client_id=client_id
+                    client_id=client_id,
+                    callbacks=callbacks  # Pass callbacks to the agent
                 )
                 st.write("### Results")
                 st.write(final_analysis)
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
+                # Add more detailed error logging
+                st.error("Please check that your DocumentAnalysisAgents class is properly configured with tools")
     else:
         st.warning("Please enter both a query and API key to continue.")
