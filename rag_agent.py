@@ -302,7 +302,6 @@ class RAGAgent:
 
     def get_recent_meeting_summaries(self, num_meetings: int = 3):
         """Get summaries for the most recent meetings"""
-        # Get documents from test_meetings folder
         url = f"https://api.ragie.ai/documents?page_size={num_meetings}&filter=%7B%22folder%22%3A%20%7B%22%24eq%22%3A%20%22test_meetings%22%7D%7D"
         
         headers = {
