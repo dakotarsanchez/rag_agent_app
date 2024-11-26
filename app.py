@@ -1,10 +1,22 @@
 import streamlit as st
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Verify secrets are loaded
+if not st.secrets:
+    raise ValueError("Streamlit secrets not found")
+
+# Initialize your RAG agent with the secrets
 from rag_agent import RAGAgent
+agent = RAGAgent()
 
 # Initialize the session state for the agent if it doesn't exist
 if 'agent' not in st.session_state:
     try:
-        st.session_state.agent = RAGAgent()
+        st.session_state.agent = agent
     except Exception as e:
         st.error(f"Error initializing RAGAgent: {str(e)}")
         st.stop()
