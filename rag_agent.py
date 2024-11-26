@@ -106,12 +106,12 @@ Question: {input}
         pass
 
     def execute_analysis(self, query, meeting_notes, client_agreements, client_id, callbacks=None):
-        # Use the agent_executor instead of creating a new agent
         try:
-            return self.agent_executor.run(
-                input=query,
+            # Use invoke instead of run
+            return self.agent_executor.invoke(
+                {"input": query},
                 callbacks=callbacks
-            )
+            )["output"]
         except Exception as e:
             print(f"Error during execution: {str(e)}")
             raise
