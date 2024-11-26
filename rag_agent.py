@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
-from crewai import Agent, Task, Crew
+from langchain.chat_models import ChatOpenAI
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.agents import Tool, AgentExecutor, create_react_agent
+from langchain.prompts import PromptTemplate
 from langchain.tools import Tool
 import requests
 import json
@@ -8,49 +11,77 @@ import litellm
 from datetime import datetime, timedelta
 import re
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Get API keys from environment variables
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-RAGIE_API_KEY = os.getenv('RAGIE_API_KEY')
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-OPENROUTER_URL = os.getenv('OPENROUTER_URL')
-
-# Set OpenAI API key
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-
 class DocumentAnalysisAgents:
     def __init__(self):
+        # Load API keys in the constructor
+        self.RAGIE_API_KEY = os.getenv('RAGIE_API_KEY')
+        self.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+        self.OPENROUTER_URL = os.getenv('OPENROUTER_URL')
+        
         # Define the LLM configuration for GPT-3.5-turbo
         llm_config = {
             "model": "gpt-3.5-turbo",
             "temperature": 0.7,
         }
         
-        self.meeting_notes_analyst = Agent(
-            role='Meeting Notes Specialist',
-            goal='Extract key insights from meeting notes',
-            backstory='Expert in analyzing professional meeting documentation',
-            verbose=True,
-            llm_config=llm_config
-        )
+        self.llm = ChatOpenAI(temperature=0)
+        self.embeddings = OpenAIEmbeddings()
         
-        self.contract_analyst = Agent(
-            role='Contract Analysis Expert',
-            goal='Interpret and extract critical details from client agreements',
-            backstory='Skilled in legal document interpretation and business contract analysis',
-            verbose=True,
-            llm_config=llm_config
-        )
+        # Initialize your tools and agents here
+        self.tools = [
+            Tool(
+                name="Meeting Notes Analysis",
+                func=self._analyze_meeting_notes,
+                description="Analyzes meeting notes for relevant information"
+            ),
+            Tool(
+                name="Agreement Analysis",
+                func=self._analyze_agreements,
+                description="Analyzes client agreements for relevant information"
+            ),
+            # Add your other tools here
+        ]
         
-        self.synthesis_analyst = Agent(
-            role='Business Intelligence Synthesizer',
-            goal='Combine insights from multiple sources into a coherent narrative',
-            backstory='Expert in cross-referencing and integrating complex business information',
-            verbose=True,
-            llm_config=llm_config
+        # Set up your agent
+        self.agent = create_react_agent(
+            llm=self.llm,
+            tools=self.tools,
+            prompt=self._get_agent_prompt()
         )
+        self.agent_executor = AgentExecutor.from_agent_and_tools(
+            agent=self.agent,
+            tools=self.tools,
+            verbose=True
+        )
+
+    def _get_agent_prompt(self):
+        # Define your agent prompt here
+        prompt = PromptTemplate(
+            template="Your prompt template here",
+            input_variables=["input", "tools"]
+        )
+        return prompt
+
+    def _analyze_meeting_notes(self, query):
+        # Your meeting notes analysis logic here
+        pass
+
+    def _analyze_agreements(self, query):
+        # Your agreement analysis logic here
+        pass
+
+    def execute_analysis(self, query, meeting_notes, client_agreements, client_id):
+        # Your main analysis workflow
+        try:
+            result = self.agent_executor.run(
+                input=query,
+                meeting_notes=meeting_notes,
+                client_agreements=client_agreements,
+                client_id=client_id
+            )
+            return result
+        except Exception as e:
+            return f"Error during analysis: {str(e)}"
         
         self.query_analyst = Agent(
             role='Query Analysis Specialist',
