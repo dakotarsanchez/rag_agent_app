@@ -302,21 +302,34 @@ class RAGAgent:
 
     def get_recent_meeting_summaries(self, num_meetings: int = 3):
         """Get summaries for the most recent meetings"""
-        # Fix the filter format in the URL
         url = "https://api.ragie.ai/documents"
+        
+        # Properly format the filter for the API
+        filter_params = {
+            "folder": {
+                "$eq": "test_meetings"
+            }
+        }
+        
         params = {
             "page_size": num_meetings,
-            "filter": {"folder": {"$eq": "test_meetings"}}
+            "filter": filter_params
         }
         
         headers = {
             "accept": "application/json",
-            "authorization": f"Bearer {self.api_key}"
+            "authorization": f"Bearer {self.api_key}",
+            "content-type": "application/json"  # Added content-type header
         }
         
         try:
             print("Fetching documents...")
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(
+                url,
+                headers=headers,
+                params=params,
+                json=filter_params  # Send filter as JSON in body
+            )
             response.raise_for_status()
             
             documents = response.json().get('documents', [])
