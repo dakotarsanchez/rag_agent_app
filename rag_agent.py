@@ -14,6 +14,7 @@ import streamlit as st
 from typing import Optional
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
+from crewai import Agent, Task, Crew, Process
 
 class TemporalQuery(BaseModel):
     query_type: str
@@ -43,55 +44,33 @@ class RAGAgent:
             openai_api_key=self.openai_api_key
         )
         
-        # Initialize tools
-        self.tools = [
-            Tool(
-                name="Meeting Notes Analysis",
-                func=self._analyze_meeting_notes,
-                description="Analyzes meeting notes for relevant information"
-            ),
-            Tool(
-                name="Agreement Analysis",
-                func=self._analyze_agreements,
-                description="Analyzes client agreements for relevant information"
-            ),
-        ]
+        # Initialize the base tools
+        self.tools = self._initialize_tools()
         
-        # Initialize the agent with updated prompt
-        prompt_template = """Answer the following questions as best you can. You have access to the following tools:
-
-{tools}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Question: {input}
-
-{agent_scratchpad}"""
-
-        self.prompt = PromptTemplate(
-            template=prompt_template,
-            input_variables=["tools", "tool_names", "input", "agent_scratchpad"]
-        )
-
-        self.agent = create_react_agent(
+        # Initialize CrewAI agents
+        self.meeting_analyst = Agent(
+            role='Meeting Notes Analyst',
+            goal='Analyze meeting notes to extract relevant information and insights',
+            backstory='Expert at analyzing meeting notes and extracting key information',
+            tools=[self.tools[0]],  # Meeting Notes Analysis tool
             llm=self.llm,
-            tools=self.tools,
-            prompt=self.prompt
-        )
-
-        self.agent_executor = AgentExecutor.from_agent_and_tools(
-            agent=self.agent,
-            tools=self.tools,
             verbose=True
+        )
+        
+        self.agreement_analyst = Agent(
+            role='Agreement Analyst',
+            goal='Analyze agreements to extract relevant information and requirements',
+            backstory='Expert at analyzing legal agreements and contractual documents',
+            tools=[self.tools[1]],  # Agreement Analysis tool
+            llm=self.llm,
+            verbose=True
+        )
+        
+        # Initialize the crew
+        self.crew = Crew(
+            agents=[self.meeting_analyst, self.agreement_analyst],
+            tasks=[],
+            process=Process.sequential
         )
         
         # Initialize conversation history
@@ -108,6 +87,21 @@ Question: {input}
             ("user", "{query}"),
             ("system", "Provide your analysis in the following format:\n{format_instructions}")
         ])
+
+    def _initialize_tools(self):
+        """Initialize the tools for the agents"""
+        return [
+            Tool(
+                name="Meeting Notes Analysis",
+                func=self._analyze_meeting_notes,
+                description="Analyzes meeting notes for relevant information"
+            ),
+            Tool(
+                name="Agreement Analysis",
+                func=self._analyze_agreements,
+                description="Analyzes client agreements for relevant information"
+            ),
+        ]
 
     def get_ragie_documents(self, folder_name: str) -> List[Dict]:
         """Get all documents from a Ragie folder"""
@@ -247,25 +241,33 @@ Question: {input}
         return context
 
     def process_query(self, query: str) -> str:
-        """Main query processing method"""
+        """Main query processing method using CrewAI"""
         # Add user query to history
         self.add_to_history("user", query)
         
-        # Get conversation context
-        context = self.get_conversation_context()
-        
         try:
-            # Use the agent executor to process the query
-            response = self.agent_executor.invoke(
-                {
-                    "input": f"{context}\n\nCurrent question: {query}"
-                }
-            )["output"]
+            # Create tasks based on the query
+            tasks = [
+                Task(
+                    description=f"Analyze the following query and provide relevant information: {query}",
+                    agent=self.meeting_analyst
+                ),
+                Task(
+                    description=f"Review agreements for information related to: {query}",
+                    agent=self.agreement_analyst
+                )
+            ]
+            
+            # Update crew tasks
+            self.crew.tasks = tasks
+            
+            # Execute the crew
+            result = self.crew.kickoff()
             
             # Add response to history
-            self.add_to_history("assistant", response)
+            self.add_to_history("assistant", result)
             
-            return response
+            return result
             
         except Exception as e:
             error_msg = f"Error during execution: {str(e)}"
