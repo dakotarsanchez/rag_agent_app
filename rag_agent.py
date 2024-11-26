@@ -137,11 +137,20 @@ class RAGAgent:
         }
         
         try:
+            print(f"Making API request to {url}")  # Debug log
+            print(f"With params: {params}")  # Debug log
             response = requests.get(url, headers=headers, params=params)
+            print(f"API Response status: {response.status_code}")  # Debug log
+            
+            if response.status_code != 200:
+                print(f"Error response content: {response.text}")  # Debug log for error responses
+            
             response.raise_for_status()
-            return response.json().get('documents', [])
+            result = response.json()
+            print(f"Retrieved {len(result.get('documents', []))} documents")  # Debug log
+            return result.get('documents', [])
         except Exception as e:
-            print(f"Error fetching documents: {e}")
+            print(f"Detailed error in get_ragie_documents: {str(e)}")  # Enhanced error logging
             return []
 
     def analyze_temporal_requirements(self, query: str, available_dates: List[str]) -> TemporalQuery:
@@ -312,9 +321,11 @@ class RAGAgent:
         Returns a list of meeting summaries with their metadata.
         """
         try:
+            print("Attempting to fetch meeting summaries...")  # Debug log
             meetings = self.get_ragie_documents("test_meetings")
-            # Sort by date if needed and return the most recent ones
+            print(f"Retrieved {len(meetings)} meetings")  # Debug log
             return meetings[:limit]
         except Exception as e:
+            print(f"Detailed error in get_recent_meeting_summaries: {str(e)}")  # Enhanced error logging
             st.error(f"Error fetching meeting summaries: {str(e)}")
             return []
