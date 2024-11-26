@@ -181,7 +181,7 @@ class RAGAgent:
         # If it's a meeting query, first get relevant meetings
         if document_type == 'meetings':
             # Get all available meetings
-            all_meetings = self.get_ragie_documents("test_client_meetings")
+            all_meetings = self.get_ragie_documents("test_meetings")
             
             # Extract available dates for context
             available_dates = []
@@ -203,7 +203,7 @@ class RAGAgent:
                     "query": query,
                     "top_k": 5,
                     "filter": {
-                        "folder": "test_client_meetings",
+                        "folder": "test_meetings",
                         "document_id": {"$in": document_ids}
                     },
                     "rerank": True
@@ -213,7 +213,7 @@ class RAGAgent:
                     "query": query,
                     "top_k": 5,
                     "filter": {
-                        "folder": "test_client_meetings"
+                        "folder": "test_meetings"
                     },
                     "rerank": True
                 }
