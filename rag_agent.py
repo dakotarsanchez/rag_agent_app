@@ -15,6 +15,7 @@ from typing import Optional
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from crewai import Agent, Task, Crew, Process
+from pydantic import BaseModel
 
 class TemporalQuery(BaseModel):
     query_type: str
