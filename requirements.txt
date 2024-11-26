@@ -1,0 +1,19 @@
+streamlit==1.32.0
+python-dotenv==1.0.1
+# Web Interface
+
+
+# RAG Implementation
+crewai==0.11.0
+langchain==0.1.9
+litellm==1.23.0
+
+# API and HTTP
+requests==2.31.0
+
+
+# Date handling
+python-dateutil==2.8.2
+
+# OpenAI
+openai==1.12.0 
