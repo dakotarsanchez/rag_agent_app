@@ -10,41 +10,32 @@ import json
 import litellm
 from datetime import datetime, timedelta
 import re
+import streamlit as st
+from typing import Optional
 
-class DocumentAnalysisAgents:
-    def __init__(self):
-        # Load environment variables at the start
+class RAGAgent:
+    def __init__(self, api_key: Optional[str] = None):
+        # Load environment variables and API keys
         load_dotenv()
+        self.api_key = api_key or st.secrets.get("RAGIE_API_KEY") or os.getenv('RAGIE_API_KEY')
+        self.openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv('OPENAI_API_KEY')
         
-        # Check if environment variables are loaded
-        self.OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-        self.RAGIE_API_KEY = os.getenv('RAGIE_API_KEY')
-        self.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
-        self.OPENROUTER_URL = os.getenv('OPENROUTER_URL')
-        
-        if not self.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        if not self.RAGIE_API_KEY:
-            raise ValueError("RAGIE_API_KEY not found in environment variables")
+        if not self.api_key:
+            raise ValueError("RAGIE_API_KEY not found in environment variables or secrets")
+        if not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY not found in environment variables or secrets")
             
-        # Initialize LLM with the API key
+        # Initialize LLM and embeddings
         self.llm = ChatOpenAI(
             temperature=0,
-            openai_api_key=self.OPENAI_API_KEY
+            openai_api_key=self.openai_api_key
         )
         
-        # Initialize embeddings with the API key
         self.embeddings = OpenAIEmbeddings(
-            openai_api_key=self.OPENAI_API_KEY
+            openai_api_key=self.openai_api_key
         )
         
-        # Define the LLM configuration for GPT-3.5-turbo
-        llm_config = {
-            "model": "gpt-3.5-turbo",
-            "temperature": 0.7,
-        }
-        
-        # Initialize your tools and agents here
+        # Initialize tools
         self.tools = [
             Tool(
                 name="Meeting Notes Analysis",
@@ -56,10 +47,9 @@ class DocumentAnalysisAgents:
                 func=self._analyze_agreements,
                 description="Analyzes client agreements for relevant information"
             ),
-            # Add your other tools here
         ]
         
-        # Update the prompt template to include all required variables
+        # Initialize the agent with updated prompt
         prompt_template = """Answer the following questions as best you can. You have access to the following tools:
 
 {tools}
@@ -84,7 +74,6 @@ Question: {input}
             input_variables=["tools", "tool_names", "input", "agent_scratchpad"]
         )
 
-        # Create the agent with the updated prompt
         self.agent = create_react_agent(
             llm=self.llm,
             tools=self.tools,
@@ -96,22 +85,86 @@ Question: {input}
             tools=self.tools,
             verbose=True
         )
+        
+        # Initialize conversation history
+        self.conversation_history = []
+
+    def ragie_api_search(self, query: str, timeframe_info=None, client_id=None, document_type=None):
+        """Execute search against Ragie API with proper filtering"""
+        url = "https://api.ragie.ai/retrievals"
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "authorization": f"Bearer {self.api_key}"
+        }
+        
+        payload = {
+            "query": query,
+            "top_k": 5,
+            "filter": {},
+            "rerank": True
+        }
+
+        if client_id:
+            payload["filter"]["client"] = client_id
+        
+        if document_type == 'meetings':
+            payload["filter"]["folder"] = "test_client_meetings"
+        elif document_type == 'agreements':
+            payload["filter"]["folder"] = "test_client_agreements"
+
+        response = requests.post(url, json=payload, headers=headers)
+        return response.json()
+
+    def add_to_history(self, role: str, content: str):
+        """Add a message to the conversation history."""
+        self.conversation_history.append({"role": role, "content": content})
+        
+    def get_conversation_context(self) -> str:
+        """Format conversation history into a string context."""
+        if not self.conversation_history:
+            return ""
+            
+        context = "Previous conversation:\n"
+        for message in self.conversation_history:
+            prefix = "User: " if message["role"] == "user" else "Assistant: "
+            context += f"{prefix}{message['content']}\n"
+        return context
+
+    def process_query(self, query: str) -> str:
+        """Main query processing method"""
+        # Add user query to history
+        self.add_to_history("user", query)
+        
+        # Get conversation context
+        context = self.get_conversation_context()
+        
+        try:
+            # Use the agent executor to process the query
+            response = self.agent_executor.invoke(
+                {
+                    "input": f"{context}\n\nCurrent question: {query}"
+                }
+            )["output"]
+            
+            # Add response to history
+            self.add_to_history("assistant", response)
+            
+            return response
+            
+        except Exception as e:
+            error_msg = f"Error during execution: {str(e)}"
+            print(error_msg)
+            return error_msg
 
     def _analyze_meeting_notes(self, query):
-        # Your meeting notes analysis logic here
-        pass
+        """Analyze meeting notes using Ragie API"""
+        results = self.ragie_api_search(query, document_type='meetings')
+        # Process the results and return insights
+        return results
 
     def _analyze_agreements(self, query):
-        # Your agreement analysis logic here
-        pass
-
-    def execute_analysis(self, query, meeting_notes, client_agreements, client_id, callbacks=None):
-        try:
-            # Use invoke instead of run
-            return self.agent_executor.invoke(
-                {"input": query},
-                callbacks=callbacks
-            )["output"]
-        except Exception as e:
-            print(f"Error during execution: {str(e)}")
-            raise
+        """Analyze agreements using Ragie API"""
+        results = self.ragie_api_search(query, document_type='agreements')
+        # Process the results and return insights
+        return results
