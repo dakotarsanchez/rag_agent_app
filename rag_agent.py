@@ -15,13 +15,26 @@ from typing import Optional, List
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from crewai import Agent, Task, Crew, Process
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel, Field
 
 class TemporalQuery(BaseModel):
-    query_type: str
-    count: int
-    start_date: str
-    end_date: str
+    query_type: str = Field(description="Type of temporal query (e.g., 'latest_n' or 'date_range')")
+    count: int = Field(description="Number of meetings to retrieve when query_type is 'latest_n'")
+    start_date: str = Field(description="Start date for date range queries (YYYY-MM-DD)")
+    end_date: str = Field(description="End date for date range queries (YYYY-MM-DD)")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query_type": "latest_n",
+                    "count": 5,
+                    "start_date": "",
+                    "end_date": ""
+                }
+            ]
+        }
+    }
 
 class RAGAgent:
     def __init__(self, api_key: Optional[str] = None):
