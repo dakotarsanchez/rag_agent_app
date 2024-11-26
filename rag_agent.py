@@ -11,7 +11,7 @@ import litellm
 from datetime import datetime, timedelta
 import re
 import streamlit as st
-from typing import Optional, List
+from typing import Optional, List, Dict
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
 from crewai import Agent, Task, Crew, Process
