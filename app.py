@@ -3,15 +3,26 @@ from rag_agent import RAGAgent
 
 # Initialize the session state for the agent if it doesn't exist
 if 'agent' not in st.session_state:
-    st.session_state.agent = RAGAgent()
+    try:
+        st.session_state.agent = RAGAgent()
+    except Exception as e:
+        st.error(f"Error initializing RAGAgent: {str(e)}")
+        st.stop()
 
 # Add Recent Meeting Summaries section
 st.title("Recent Meeting Summaries")
-recent_summaries = st.session_state.agent.get_recent_meeting_summaries(3)
 
-for meeting in recent_summaries:
-    with st.expander(f"{meeting['name']}"):
-        st.write(meeting['summary'])
+try:
+    recent_summaries = st.session_state.agent.get_recent_meeting_summaries(3)
+    
+    if not recent_summaries:
+        st.warning("No recent meetings found.")
+    else:
+        for meeting in recent_summaries:
+            with st.expander(f"{meeting['name']}"):
+                st.write(meeting['summary'])
+except Exception as e:
+    st.error(f"Error fetching meeting summaries: {str(e)}")
 
 # Add a separator
 st.markdown("---")
