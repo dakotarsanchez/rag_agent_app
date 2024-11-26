@@ -12,6 +12,14 @@ from datetime import datetime, timedelta
 import re
 import streamlit as st
 from typing import Optional
+from langchain.output_parsers import PydanticOutputParser
+from langchain.prompts import ChatPromptTemplate
+
+class TemporalQuery(BaseModel):
+    query_type: str
+    count: int
+    start_date: str
+    end_date: str
 
 class RAGAgent:
     def __init__(self, api_key: Optional[str] = None):
@@ -89,8 +97,130 @@ Question: {input}
         # Initialize conversation history
         self.conversation_history = []
 
+        # Add temporal query parser
+        self.temporal_parser = PydanticOutputParser(pydantic_object=TemporalQuery)
+        self.temporal_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert at understanding temporal requirements in queries about meetings.
+            Current date: {current_date}
+            Available meeting dates: {available_dates}
+            
+            Analyze the query to determine what meetings are relevant based on time requirements."""),
+            ("user", "{query}"),
+            ("system", "Provide your analysis in the following format:\n{format_instructions}")
+        ])
+
+    def get_ragie_documents(self, folder_name: str) -> List[Dict]:
+        """Get all documents from a Ragie folder"""
+        url = f"https://api.ragie.ai/documents"
+        params = {
+            "page_size": 99,
+            "filter": {"folder": {"$eq": folder_name}}
+        }
+        
+        headers = {
+            "accept": "application/json",
+            "authorization": f"Bearer {self.api_key}"
+        }
+        
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            return response.json().get('documents', [])
+        except Exception as e:
+            print(f"Error fetching documents: {e}")
+            return []
+
+    def analyze_temporal_requirements(self, query: str, available_dates: List[str]) -> TemporalQuery:
+        """Use LLM to analyze temporal requirements in query"""
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        
+        formatted_prompt = self.temporal_prompt.format_messages(
+            query=query,
+            current_date=current_date,
+            available_dates=", ".join(available_dates),
+            format_instructions=self.temporal_parser.get_format_instructions()
+        )
+        
+        response = self.llm.invoke(formatted_prompt)
+        return self.temporal_parser.parse(response.content)
+
+    def filter_meetings_by_date(self, meetings: List[Dict], temporal_info: TemporalQuery) -> List[Dict]:
+        """Filter meetings based on temporal requirements"""
+        # Extract and sort dates
+        dated_meetings = []
+        for meeting in meetings:
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', meeting['name'])
+            if date_match:
+                meeting_date = datetime.strptime(date_match.group(1), '%Y-%m-%d')
+                dated_meetings.append((meeting_date, meeting))
+        
+        dated_meetings.sort(key=lambda x: x[0], reverse=True)
+        
+        if temporal_info.query_type == "latest_n":
+            return [meeting for _, meeting in dated_meetings[:temporal_info.count]]
+        elif temporal_info.query_type == "date_range":
+            start_date = datetime.strptime(temporal_info.start_date, "%Y-%m-%d")
+            end_date = datetime.strptime(temporal_info.end_date, "%Y-%m-%d")
+            return [
+                meeting for date, meeting in dated_meetings
+                if start_date <= date <= end_date
+            ]
+        
+        return [meeting for _, meeting in dated_meetings]
+
     def ragie_api_search(self, query: str, timeframe_info=None, client_id=None, document_type=None):
         """Execute search against Ragie API with proper filtering"""
+        # If it's a meeting query, first get relevant meetings
+        if document_type == 'meetings':
+            # Get all available meetings
+            all_meetings = self.get_ragie_documents("test_client_meetings")
+            
+            # Extract available dates for context
+            available_dates = []
+            for meeting in all_meetings:
+                date_match = re.search(r'(\d{4}-\d{2}-\d{2})', meeting['name'])
+                if date_match:
+                    available_dates.append(date_match.group(1))
+            
+            # Analyze temporal requirements
+            temporal_info = self.analyze_temporal_requirements(query, available_dates)
+            
+            # Filter meetings based on temporal requirements
+            relevant_meetings = self.filter_meetings_by_date(all_meetings, temporal_info)
+            
+            # Get content for relevant meetings
+            document_ids = [meeting['id'] for meeting in relevant_meetings]
+            if document_ids:
+                payload = {
+                    "query": query,
+                    "top_k": 5,
+                    "filter": {
+                        "folder": "test_client_meetings",
+                        "document_id": {"$in": document_ids}
+                    },
+                    "rerank": True
+                }
+            else:
+                payload = {
+                    "query": query,
+                    "top_k": 5,
+                    "filter": {
+                        "folder": "test_client_meetings"
+                    },
+                    "rerank": True
+                }
+        else:
+            # Original agreement search logic
+            payload = {
+                "query": query,
+                "top_k": 5,
+                "filter": {
+                    "folder": document_type
+                },
+                "rerank": True
+            }
+
+        # Execute API call
         url = "https://api.ragie.ai/retrievals"
         headers = {
             "accept": "application/json",
@@ -98,21 +228,6 @@ Question: {input}
             "authorization": f"Bearer {self.api_key}"
         }
         
-        payload = {
-            "query": query,
-            "top_k": 5,
-            "filter": {},
-            "rerank": True
-        }
-
-        if client_id:
-            payload["filter"]["client"] = client_id
-        
-        if document_type == 'meetings':
-            payload["filter"]["folder"] = "test_client_meetings"
-        elif document_type == 'agreements':
-            payload["filter"]["folder"] = "test_client_agreements"
-
         response = requests.post(url, json=payload, headers=headers)
         return response.json()
 
