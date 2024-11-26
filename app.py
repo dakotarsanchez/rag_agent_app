@@ -1,25 +1,14 @@
 import streamlit as st
 import os
+from langchain.callbacks import StreamlitCallbackHandler
 from rag_agent import DocumentAnalysisAgents
 from langchain.agents import AgentType
-from langchain.callbacks import StreamlitCallbackHandler
 
 st.set_page_config(page_title="RAG Agent Interface", layout="wide")
 
-# Add proper error handling for API key
-try:
-    OPENAI_API_KEY = st.text_input("Enter your OpenAI API Key:", type="password")
-    if OPENAI_API_KEY:
-        os.environ["OPENAI_API_KEY"] = str(OPENAI_API_KEY)
-        
-        # Optional: Add other API keys if needed
-        RAGIE_API_KEY = st.text_input("Enter your RAGIE API Key:", type="password")
-        if RAGIE_API_KEY:
-            os.environ["RAGIE_API_KEY"] = str(RAGIE_API_KEY)
-    else:
-        st.warning("Please enter your OpenAI API key to continue.")
-except Exception as e:
-    st.error(f"Error setting API key: {str(e)}")
+# At the very start of your app, load secrets into environment variables
+for key, value in st.secrets.items():
+    os.environ[key] = value
 
 # Input area
 query = st.text_area("Enter your query:", height=150)
@@ -40,8 +29,6 @@ if st.button("Run Query", type="primary"):
                 )
                 st.write("### Results")
                 st.write(final_analysis)
-            except ValueError as e:
-                st.error(f"Configuration error: {str(e)}")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
     else:
