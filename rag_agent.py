@@ -213,7 +213,7 @@ class DocumentAnalysisAgents:
         
         return crew.kickoff()
     
-    def execute_analysis(self, query, meeting_notes, client_agreements, client_id=None):
+    def execute_analysis(self, query, meeting_notes, client_agreements, client_id):
         # Get timeframe analysis
         timeframe_output = self.analyze_query_timeframe(query)
         timeframe = str(timeframe_output).strip()
