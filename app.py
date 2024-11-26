@@ -13,6 +13,8 @@ try:
         os.environ["OPENAI_API_KEY"] = str(OPENAI_API_KEY)  # Ensure string conversion
     else:
         st.warning("Please enter your OpenAI API key to continue.")
+except Exception as e:
+    st.error(f"Error setting API key: {str(e)}")
 
 # Input area
 query = st.text_area("Enter your query:", height=150)
