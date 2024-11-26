@@ -41,28 +41,35 @@ class RAGAgent:
         # Load environment variables and API keys
         load_dotenv()
         
-        # Try to get API keys from different sources with debug logging
-        self.api_key = api_key or st.secrets["RAGIE_API_KEY"]
-        self.openai_api_key = st.secrets["OPENAI_API_KEY"]
-        
-        # Debug logging
-        print(f"RAGIE API Key found: {bool(self.api_key)}")
-        print(f"OpenAI API Key found: {bool(self.openai_api_key)}")
-        
-        if not self.api_key:
-            raise ValueError("RAGIE_API_KEY not found in secrets")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY not found in secrets")
+        try:
+            # Try to get API keys from different sources with debug logging
+            self.api_key = api_key or st.secrets["RAGIE_API_KEY"]
+            self.openai_api_key = st.secrets["OPENAI_API_KEY"]
             
-        # Initialize LLM and embeddings
-        self.llm = ChatOpenAI(
-            temperature=0,
-            openai_api_key=self.openai_api_key
-        )
-        
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=self.openai_api_key
-        )
+            # Debug logging
+            print(f"RAGIE API Key found: {bool(self.api_key)}")
+            print(f"OpenAI API Key found: {bool(self.openai_api_key)}")
+            
+            if not self.api_key:
+                raise ValueError("RAGIE_API_KEY not found in secrets")
+            if not self.openai_api_key:
+                raise ValueError("OPENAI_API_KEY not found in secrets")
+            
+            # Initialize LLM and embeddings
+            self.llm = ChatOpenAI(
+                temperature=0,
+                openai_api_key=self.openai_api_key
+            )
+            
+            self.embeddings = OpenAIEmbeddings(
+                openai_api_key=self.openai_api_key
+            )
+            
+            print("LLM and embeddings initialized successfully")
+            
+        except Exception as e:
+            print(f"Error in RAGAgent initialization: {str(e)}")
+            raise
         
         # Initialize the base tools
         self.tools = self._initialize_tools()
