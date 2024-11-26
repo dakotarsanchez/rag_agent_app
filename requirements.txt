@@ -16,4 +16,3 @@ python-dateutil==2.8.2
 openai==1.12.0 
 langchain-openai==0.0.2  # Pinning specific version instead of using >=
 litellm==1.23.0  # Remove duplicate with specific version
-pydantic==2.0.3  # Pinning specific version instead of using >=
