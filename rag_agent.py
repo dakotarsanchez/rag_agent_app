@@ -300,44 +300,39 @@ class RAGAgent:
         # Process the results and return insights
         return results
 
-    def get_recent_meeting_summaries(self, num_meetings: int = 3) -> List[Dict]:
+    def get_recent_meeting_summaries(self, num_meetings: int = 3):
         """Get summaries for the most recent meetings"""
-        url = "https://api.ragie.ai/documents"
+        # Get documents from test_meetings folder
+        url = f"https://api.ragie.ai/documents?page_size={num_meetings}&filter=%7B%22folder%22%3A%20%7B%22%24eq%22%3A%20%22test_meetings%22%7D%7D"
+        
         headers = {
             "accept": "application/json",
             "authorization": f"Bearer {self.api_key}"
         }
         
-        # Get meetings sorted by created_at in descending order (newest first)
-        params = {
-            "page_size": num_meetings,
-            "filter": {"folder": {"$eq": "test_client_meetings"}}
-        }
-        
-        meeting_summaries = []
         try:
-            # Get the most recent meetings
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers)
             response.raise_for_status()
-            meetings = response.json().get('documents', [])
             
-            # For each meeting, get its summary
-            for meeting in meetings:
+            documents = response.json().get('documents', [])
+            meeting_summaries = []
+            
+            # For each document, fetch its summary
+            for doc in documents:
                 try:
-                    response = requests.get(
-                        f"{url}/{meeting['id']}", 
-                        headers=headers
-                    )
-                    response.raise_for_status()
-                    meeting_data = response.json()
+                    summary_url = f"https://api.ragie.ai/documents/{doc['id']}/summary"
+                    summary_response = requests.get(summary_url, headers=headers)
+                    summary_response.raise_for_status()
+                    
                     meeting_summaries.append({
-                        'name': meeting['name'],
-                        'summary': meeting_data.get('summary', 'No summary available')
+                        'name': doc.get('name', 'Unnamed Meeting').replace('.pdf', ''),
+                        'summary': summary_response.json().get('summary', 'No summary available')
                     })
                 except Exception as e:
-                    print(f"Error fetching summary for meeting {meeting['id']}: {e}")
-                
+                    print(f"Error fetching summary for document {doc['id']}: {e}")
+                    
+            return meeting_summaries
+            
         except Exception as e:
             print(f"Error fetching meetings: {e}")
-        
-        return meeting_summaries
+            return []
