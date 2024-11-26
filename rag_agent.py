@@ -40,13 +40,19 @@ class RAGAgent:
     def __init__(self, api_key: Optional[str] = None):
         # Load environment variables and API keys
         load_dotenv()
-        self.api_key = api_key or st.secrets.get("RAGIE_API_KEY") or os.getenv('RAGIE_API_KEY')
-        self.openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv('OPENAI_API_KEY')
+        
+        # Try to get API keys from different sources with debug logging
+        self.api_key = api_key or st.secrets["RAGIE_API_KEY"]
+        self.openai_api_key = st.secrets["OPENAI_API_KEY"]
+        
+        # Debug logging
+        print(f"RAGIE API Key found: {bool(self.api_key)}")
+        print(f"OpenAI API Key found: {bool(self.openai_api_key)}")
         
         if not self.api_key:
-            raise ValueError("RAGIE_API_KEY not found in environment variables or secrets")
+            raise ValueError("RAGIE_API_KEY not found in secrets")
         if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables or secrets")
+            raise ValueError("OPENAI_API_KEY not found in secrets")
             
         # Initialize LLM and embeddings
         self.llm = ChatOpenAI(
@@ -300,61 +306,15 @@ class RAGAgent:
         # Process the results and return insights
         return results
 
-    def get_recent_meeting_summaries(self, num_meetings: int = 3):
-        """Get summaries for the most recent meetings"""
-        url = "https://api.ragie.ai/documents"
-        
-        # Properly format the filter for the API
-        filter_params = {
-            "folder": {
-                "$eq": "test_meetings"
-            }
-        }
-        
-        params = {
-            "page_size": num_meetings,
-            "filter": filter_params
-        }
-        
-        headers = {
-            "accept": "application/json",
-            "authorization": f"Bearer {self.api_key}",
-            "content-type": "application/json"  # Added content-type header
-        }
-        
+    def get_recent_meeting_summaries(self, limit: int = 3):
+        """
+        Fetch recent meeting summaries from the document store.
+        Returns a list of meeting summaries with their metadata.
+        """
         try:
-            print("Fetching documents...")
-            response = requests.get(
-                url,
-                headers=headers,
-                params=params,
-                json=filter_params  # Send filter as JSON in body
-            )
-            response.raise_for_status()
-            
-            documents = response.json().get('documents', [])
-            meeting_summaries = []
-            
-            # For each document, fetch its summary
-            for doc in documents:
-                try:
-                    doc_id = doc['id']
-                    summary_url = f"https://api.ragie.ai/documents/{doc_id}/summary"
-                    summary_response = requests.get(summary_url, headers=headers)
-                    summary_response.raise_for_status()
-                    
-                    meeting_summaries.append({
-                        'name': doc.get('name', 'Unnamed Meeting').replace('.pdf', ''),
-                        'summary': summary_response.json().get('summary', 'No summary available')
-                    })
-                    print(f"Added meeting: {doc.get('name')}")
-                    
-                except Exception as e:
-                    print(f"Error fetching summary for document {doc.get('id')}: {e}")
-                    
-            print(f"Returning {len(meeting_summaries)} summaries")
-            return meeting_summaries
-            
+            meetings = self.get_ragie_documents("test_meetings")
+            # Sort by date if needed and return the most recent ones
+            return meetings[:limit]
         except Exception as e:
-            print(f"Error fetching meetings: {e}")
+            st.error(f"Error fetching meeting summaries: {str(e)}")
             return []
