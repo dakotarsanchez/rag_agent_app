@@ -315,34 +315,25 @@ class RAGAgent:
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             
-            print("Response:", response.text)  # Let's see what we're getting back
             documents = response.json().get('documents', [])
-            print(f"Found {len(documents)} documents")
-            
             meeting_summaries = []
             
             # For each document, fetch its summary
             for doc in documents:
                 try:
                     doc_id = doc['id']
-                    print(f"Fetching summary for document {doc_id}")
-                    
                     summary_url = f"https://api.ragie.ai/documents/{doc_id}/summary"
                     summary_response = requests.get(summary_url, headers=headers)
                     summary_response.raise_for_status()
-                    
-                    print("Summary response:", summary_response.text)
                     
                     meeting_summaries.append({
                         'name': doc.get('name', 'Unnamed Meeting').replace('.pdf', ''),
                         'summary': summary_response.json().get('summary', 'No summary available')
                     })
-                    print(f"Added meeting: {doc.get('name')}")
                     
                 except Exception as e:
                     print(f"Error fetching summary for document {doc.get('id')}: {e}")
                     
-            print(f"Returning {len(meeting_summaries)} summaries")
             return meeting_summaries
             
         except Exception as e:
