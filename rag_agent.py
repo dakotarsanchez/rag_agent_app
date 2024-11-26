@@ -299,3 +299,46 @@ class RAGAgent:
         results = self.ragie_api_search(query, document_type='agreements')
         # Process the results and return insights
         return results
+
+    def get_recent_meeting_summaries(self, num_meetings: int = 3) -> List[Dict]:
+        """Get summaries for the most recent meetings"""
+        # Get all meetings
+        meetings = self.get_ragie_documents("test_client_meetings")
+        
+        # Sort meetings by date
+        dated_meetings = []
+        for meeting in meetings:
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', meeting['name'])
+            if date_match:
+                meeting_date = datetime.strptime(date_match.group(1), '%Y-%m-%d')
+                dated_meetings.append((meeting_date, meeting))
+        
+        # Sort by date (newest first) and take only the specified number
+        dated_meetings.sort(key=lambda x: x[0], reverse=True)
+        recent_meetings = [meeting for _, meeting in dated_meetings[:num_meetings]]
+        
+        # Get summaries using Ragie API
+        url = "https://api.ragie.ai/documents"
+        headers = {
+            "accept": "application/json",
+            "authorization": f"Bearer {self.api_key}"
+        }
+        
+        meeting_summaries = []
+        for meeting in recent_meetings:
+            try:
+                response = requests.get(
+                    f"{url}/{meeting['id']}", 
+                    headers=headers
+                )
+                response.raise_for_status()
+                meeting_data = response.json()
+                meeting_summaries.append({
+                    'date': re.search(r'(\d{4}-\d{2}-\d{2})', meeting['name']).group(1),
+                    'name': meeting['name'],
+                    'summary': meeting_data.get('summary', 'No summary available')
+                })
+            except Exception as e:
+                print(f"Error fetching summary for meeting {meeting['id']}: {e}")
+        
+        return meeting_summaries
