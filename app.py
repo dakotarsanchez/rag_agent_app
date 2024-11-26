@@ -26,25 +26,23 @@ query = st.text_area("Enter your query:", height=150)
 client_id = st.text_input("Enter client ID:", value="P23")
 
 if st.button("Run Query", type="primary"):
-    if query and os.getenv("OPENAI_API_KEY"):
+    if query:
         with st.spinner("Processing..."):
             try:
-                # Create callback handler for Streamlit
                 callbacks = [StreamlitCallbackHandler(st.container())]
-                
                 analysis_workflow = DocumentAnalysisAgents()
                 final_analysis = analysis_workflow.execute_analysis(
                     query=query,
                     meeting_notes=None,
                     client_agreements=None,
                     client_id=client_id,
-                    callbacks=callbacks  # Pass callbacks to the agent
+                    callbacks=callbacks
                 )
                 st.write("### Results")
                 st.write(final_analysis)
+            except ValueError as e:
+                st.error(f"Configuration error: {str(e)}")
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
-                # Add more detailed error logging
-                st.error("Please check that your DocumentAnalysisAgents class is properly configured with tools")
     else:
-        st.warning("Please enter both a query and API key to continue.")
+        st.warning("Please enter a query to continue.")
