@@ -16,7 +16,7 @@ try:
     recent_summaries = st.session_state.agent.get_recent_meeting_summaries(3)
     
     if not recent_summaries:
-        st.warning("No recent meetings found.")
+        st.warning("No recent meetings found or error fetching meetings.")
     else:
         for meeting in recent_summaries:
             with st.expander(f"{meeting['name']}"):
