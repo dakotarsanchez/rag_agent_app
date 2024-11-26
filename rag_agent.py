@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 from langchain.agents import Tool, AgentExecutor, create_react_agent, initialize_agent, AgentType
 from langchain.prompts import PromptTemplate
 from langchain.tools import Tool
