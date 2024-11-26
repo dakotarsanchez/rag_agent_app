@@ -6,9 +6,14 @@ from langchain.agents import AgentType
 
 st.set_page_config(page_title="RAG Agent Interface", layout="wide")
 
-# At the very start of your app, load secrets into environment variables
-for key, value in st.secrets.items():
-    os.environ[key] = value
+# At the very start of your app
+st.write("Secrets content type:", type(st.secrets))
+st.write("Secrets keys:", st.secrets.keys())
+
+# Try this modified version for loading secrets
+for key, value in dict(st.secrets).items():
+    if isinstance(value, str):  # Only set if it's a string
+        os.environ[key] = value
 
 # Input area
 query = st.text_area("Enter your query:", height=150)
