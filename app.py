@@ -10,7 +10,7 @@ st.title("Recent Meeting Summaries")
 recent_summaries = st.session_state.agent.get_recent_meeting_summaries(3)
 
 for meeting in recent_summaries:
-    with st.expander(f"Meeting: {meeting['date']} - {meeting['name']}"):
+    with st.expander(f"Meeting: {meeting['name']}"):
         st.write(meeting['summary'])
 
 # Add a separator
