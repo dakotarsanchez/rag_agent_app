@@ -13,19 +13,36 @@ import re
 
 class DocumentAnalysisAgents:
     def __init__(self):
-        # Load API keys in the constructor
+        # Load environment variables at the start
+        load_dotenv()
+        
+        # Check if environment variables are loaded
+        self.OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
         self.RAGIE_API_KEY = os.getenv('RAGIE_API_KEY')
         self.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
         self.OPENROUTER_URL = os.getenv('OPENROUTER_URL')
+        
+        if not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY not found in environment variables")
+        if not self.RAGIE_API_KEY:
+            raise ValueError("RAGIE_API_KEY not found in environment variables")
+            
+        # Initialize LLM with the API key
+        self.llm = ChatOpenAI(
+            temperature=0,
+            openai_api_key=self.OPENAI_API_KEY
+        )
+        
+        # Initialize embeddings with the API key
+        self.embeddings = OpenAIEmbeddings(
+            openai_api_key=self.OPENAI_API_KEY
+        )
         
         # Define the LLM configuration for GPT-3.5-turbo
         llm_config = {
             "model": "gpt-3.5-turbo",
             "temperature": 0.7,
         }
-        
-        self.llm = ChatOpenAI(temperature=0)
-        self.embeddings = OpenAIEmbeddings()
         
         # Initialize your tools and agents here
         self.tools = [
