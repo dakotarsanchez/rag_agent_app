@@ -321,11 +321,27 @@ class RAGAgent:
         Returns a list of meeting summaries with their metadata.
         """
         try:
-            print("Attempting to fetch meeting summaries...")  # Debug log
-            meetings = self.get_ragie_documents("test_meetings")
-            print(f"Retrieved {len(meetings)} meetings")  # Debug log
-            return meetings[:limit]
+            print("Attempting to fetch meeting summaries...")
+            url = "https://api.ragie.ai/documents?page_size=3&filter=%7B%22folder%22%3A%20%7B%22%24eq%22%3A%20%22test_meetings%22%7D%7D"
+            
+            headers = {
+                "accept": "application/json",
+                "authorization": f"Bearer {self.api_key}"
+            }
+            
+            print(f"Making API request to {url}")
+            response = requests.get(url, headers=headers)
+            print(f"API Response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"Error response content: {response.text}")
+                return []
+            
+            result = response.json()
+            print(f"Retrieved {len(result.get('documents', []))} documents")
+            return result.get('documents', [])
+            
         except Exception as e:
-            print(f"Detailed error in get_recent_meeting_summaries: {str(e)}")  # Enhanced error logging
+            print(f"Detailed error in get_recent_meeting_summaries: {str(e)}")
             st.error(f"Error fetching meeting summaries: {str(e)}")
             return []
