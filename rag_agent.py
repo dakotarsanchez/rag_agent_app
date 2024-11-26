@@ -42,25 +42,43 @@ class DocumentAnalysisAgents:
             # Add your other tools here
         ]
         
-        # Set up your agent
+        # Update the prompt template to include all required variables
+        prompt_template = """Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Question: {input}
+
+{agent_scratchpad}"""
+
+        self.prompt = PromptTemplate(
+            template=prompt_template,
+            input_variables=["tools", "tool_names", "input", "agent_scratchpad"]
+        )
+
+        # Create the agent with the updated prompt
         self.agent = create_react_agent(
             llm=self.llm,
             tools=self.tools,
-            prompt=self._get_agent_prompt()
+            prompt=self.prompt
         )
+
         self.agent_executor = AgentExecutor.from_agent_and_tools(
             agent=self.agent,
             tools=self.tools,
             verbose=True
         )
-
-    def _get_agent_prompt(self):
-        # Define your agent prompt here
-        prompt = PromptTemplate(
-            template="Your prompt template here",
-            input_variables=["input", "tools"]
-        )
-        return prompt
 
     def _analyze_meeting_notes(self, query):
         # Your meeting notes analysis logic here
@@ -71,13 +89,12 @@ class DocumentAnalysisAgents:
         pass
 
     def execute_analysis(self, query, meeting_notes, client_agreements, client_id, callbacks=None):
-        # Initialize the agent with tools
-        agent = initialize_agent(
-            tools=self.tools,
-            llm=self.llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True,
-            callbacks=callbacks
-        )
-        
-        return agent.run(query)
+        # Use the agent_executor instead of creating a new agent
+        try:
+            return self.agent_executor.run(
+                input=query,
+                callbacks=callbacks
+            )
+        except Exception as e:
+            print(f"Error during execution: {str(e)}")
+            raise
